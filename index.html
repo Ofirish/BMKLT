@@ -287,12 +287,12 @@
                     {
                         title: "Edit Website Content",
                         desc: "Turns the entire webpage into an editable text document. Great for mocking up changes.",
-                        code: `javascript:document.body.contentEditable = 'true'; document.designMode='on'; void 0;`
+                        code: `javascript:(function(){document.designMode='on';document.body.contentEditable='true';alert('Edit Mode Enabled! Click anywhere to type.');})();`
                     },
                     {
-                        title: "Remove Sticky Headers",
-                        desc: "Zaps those annoying fixed headers and footers that take up screen space.",
-                        code: `javascript:(function(){var e=document.querySelectorAll("*");for(var i=0;i<e.length;i++){var s=getComputedStyle(e[i]);if(s.position==="fixed"||s.position==="sticky"){e[i].parentNode.removeChild(e[i]);}}})();`
+                        title: "Zap Element (Click to Delete)",
+                        desc: "Activate this, then click on ANY element (ads, headers, popups) to instantly remove it from the page.",
+                        code: `javascript:(function(){var s=document.createElement('style');s.innerHTML='*{cursor:crosshair!important;}';document.head.appendChild(s);var handler=function(e){e.preventDefault();e.stopImmediatePropagation();e.target.remove();document.removeEventListener('click',handler,true);s.remove();};document.addEventListener('click',handler,true);})();`
                     },
                     {
                         title: "Enable Right Click",
