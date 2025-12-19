@@ -26,6 +26,11 @@
             overflow: hidden; /* Prevent body scroll */
         }
 
+        /* RTL Specific overrides */
+        html[dir="rtl"] {
+            direction: rtl;
+        }
+        
         /* --- SIDEBAR --- */
         .sidebar {
             width: 280px;
@@ -42,16 +47,34 @@
             padding: 20px;
             background: rgba(0,0,0,0.2);
             border-bottom: 1px solid #374151;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .logo {
             font-size: 1.2rem;
             font-weight: 800;
-            margin-bottom: 15px;
-            display: block;
             color: white;
             letter-spacing: -0.5px;
         }
+
+        .lang-btn {
+            background: transparent;
+            border: 1px solid #4b5563;
+            color: #9ca3af;
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .lang-btn:hover { color: white; border-color: white; }
 
         /* Search Box */
         .search-box {
@@ -88,8 +111,14 @@
             cursor: pointer;
             transition: all 0.2s;
             font-size: 0.95rem;
-            border-left: 3px solid transparent;
+            border-left: 3px solid transparent; /* LTR default */
+            border-right: none;
             color: #d1d5db;
+        }
+
+        html[dir="rtl"] .menu-item {
+            border-left: none;
+            border-right: 3px solid transparent;
         }
 
         .menu-item:hover {
@@ -101,6 +130,11 @@
             background-color: rgba(37, 99, 235, 0.1);
             border-left-color: var(--primary);
             color: white;
+        }
+
+        html[dir="rtl"] .menu-item.active {
+            border-left-color: transparent;
+            border-right-color: var(--primary);
         }
 
         /* --- MAIN CONTENT --- */
@@ -118,7 +152,7 @@
             display: none;
             position: absolute;
             top: 20px;
-            left: 20px;
+            left: 20px; /* LTR */
             background: var(--sidebar-bg);
             color: white;
             border: none;
@@ -126,6 +160,11 @@
             border-radius: 6px;
             cursor: pointer;
             z-index: 20;
+        }
+
+        html[dir="rtl"] .mobile-toggle {
+            left: auto;
+            right: 20px;
         }
 
         h1 { margin: 0 0 10px 0; color: #111827; font-size: 1.8rem; }
@@ -177,6 +216,8 @@
             color: #334155;
             box-sizing: border-box;
             line-height: 1.4;
+            direction: ltr; /* Code must always be LTR */
+            text-align: left;
         }
         textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
 
@@ -246,10 +287,21 @@
             .sidebar {
                 position: fixed;
                 height: 100%;
-                transform: translateX(-100%);
                 box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+                /* Default LTR position hidden left */
+                transform: translateX(-100%);
+                left: 0; 
+                right: auto;
             }
-            .sidebar.open { transform: translateX(0); }
+            
+            html[dir="rtl"] .sidebar {
+                /* RTL position hidden right */
+                transform: translateX(100%); 
+                left: auto;
+                right: 0;
+            }
+
+            .sidebar.open { transform: translateX(0) !important; }
             .mobile-toggle { display: block; }
             .main-content { padding: 60px 20px 20px; }
         }
@@ -258,12 +310,15 @@
 <body>
 
     <!-- Mobile Toggle -->
-    <button class="mobile-toggle" onclick="toggleSidebar()">☰ Menu</button>
+    <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
 
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <span class="logo">JS Bookmarks</span>
+            <div class="header-top">
+                <span class="logo" id="ui-title">JS Bookmarks</span>
+                <button class="lang-btn" onclick="toggleLanguage()" id="langBtn">EN</button>
+            </div>
             <input type="text" id="searchInput" class="search-box" placeholder="Search tools..." onkeyup="filterSidebar()">
         </div>
         <div class="sidebar-content" id="sidebarContent">
@@ -279,113 +334,217 @@
     </div>
 
     <script>
+        // ==========================================
+        // CONFIGURATION: CHANGE DEFAULT LANGUAGE HERE
+        // 'he' = Hebrew (Default), 'en' = English
+        // ==========================================
+        const CONFIG = {
+            defaultLang: 'he' 
+        };
+
+        // --- GLOBAL STATE ---
+        let currentLang = CONFIG.defaultLang;
+        let currentCategoryIndex = 0;
+        let currentItemIndex = 0;
+
+        // --- TRANSLATIONS ---
+        const UI_TEXT = {
+            en: {
+                title: "JS Bookmarks",
+                searchPlaceholder: "Search tools...",
+                jsCodeLabel: "JavaScript Code",
+                dragButton: "Drag to Bookmarks Bar",
+                copyButton: "Copy to Clipboard",
+                copied: "Copied!",
+                installTitle: "Installation:",
+                installDesc: "Drag the blue button directly into your browser's bookmarks bar. Clicking the button won't work due to browser security restrictions.",
+                noResults: "No tools found",
+                toggleLang: "עברית"
+            },
+            he: {
+                title: "JS Bookmarks",
+                searchPlaceholder: "חפש כלי...",
+                jsCodeLabel: "קוד JavaScript",
+                dragButton: "גרור לסרגל המועדפים",
+                copyButton: "העתק ללוח",
+                copied: "הועתק!",
+                installTitle: "הוראות התקנה:",
+                installDesc: "יש לגרור את הכפתור הכחול ישירות לסרגל הסימניות בדפדפן. לחיצה רגילה על הכפתור לא תעבוד בגלל הגבלות אבטחה.",
+                noResults: "לא נמצאו כלים",
+                toggleLang: "English"
+            }
+        };
+
         // --- DATA ---
-        const library = [
+        // Each item now has 'title' and 'desc' as objects with 'en' and 'he' keys.
+        const libraryData = [
             {
-                category: "Text Tools",
+                category: { en: "Text Tools", he: "כלי טקסט" },
                 items: [
                     {
-                        title: "Edit Website Content",
-                        desc: "Turns the entire webpage into an editable text document. Great for mocking up changes.",
+                        title: { en: "Edit Website Content", he: "ערוך תוכן אתר" },
+                        desc: { 
+                            en: "Turns the entire webpage into an editable text document. Great for mocking up changes.", 
+                            he: "הופך את כל דף האינטרנט למסמך טקסט ערוך. מעולה לביצוע שינויים מהירים והדגמות." 
+                        },
                         code: `javascript:(function(){document.designMode='on';document.body.contentEditable='true';alert('Edit Mode Enabled! Click anywhere to type.');})();`
                     },
                     {
-                        title: "Zap Element (Click to Delete)",
-                        desc: "Activate this, then click on ANY element (ads, headers, popups) to instantly remove it from the page.",
+                        title: { en: "Zap Element (Click to Delete)", he: "מחק אלמנט (לחץ למחיקה)" },
+                        desc: { 
+                            en: "Activate this, then click on ANY element (ads, headers, popups) to instantly remove it from the page.", 
+                            he: "הפעל את הכלי, ואז לחץ על כל אלמנט בדף (פרסומות, כותרות, פופ-אפים) כדי להסיר אותו מיד." 
+                        },
                         code: `javascript:(function(){var s=document.createElement('style');s.innerHTML='*{cursor:crosshair!important;}';document.head.appendChild(s);var handler=function(e){e.preventDefault();e.stopImmediatePropagation();e.target.remove();document.removeEventListener('click',handler,true);s.remove();};document.addEventListener('click',handler,true);})();`
                     },
                     {
-                        title: "Enable Right Click",
-                        desc: "Re-enables context menus and copy/paste on restricted sites.",
+                        title: { en: "Enable Right Click", he: "אפשר מקש ימני" },
+                        desc: { 
+                            en: "Re-enables context menus and copy/paste on restricted sites.", 
+                            he: "מאפשר מחדש תפריטי הקשר (מקש ימני) והעתקה/הדבקה באתרים שחוסמים זאת." 
+                        },
                         code: `javascript:(function(){function allow(e){e.stopImmediatePropagation();return true;}['contextmenu','selectstart','dragstart','copy','cut','paste'].forEach(function(ev){document.addEventListener(ev,allow,true);});document.body.oncontextmenu=null;document.body.onselectstart=null;document.body.ondragstart=null;alert('Right click enabled!');})();`
                     },
                     {
-                        title: "Force Page RTL",
-                        desc: "Sets the document direction to Right-to-Left. Useful for Hebrew/Arabic.",
+                        title: { en: "Force Page RTL", he: "כפה כיוון ימין-שמאל (RTL)" },
+                        desc: { 
+                            en: "Sets the document direction to Right-to-Left. Useful for Hebrew/Arabic.", 
+                            he: "משנה את כיוון הדף לימין-לשמאל. שימושי לבדיקת ממשקים בעברית/ערבית." 
+                        },
                         code: `javascript:(function(){document.documentElement.dir='rtl';})();`
                     },
                     {
-                        title: "Translate to Hebrew",
-                        desc: "Translates the current webpage from English to Hebrew using Google Translate.",
+                        title: { en: "Translate to Hebrew", he: "תרגם לעברית" },
+                        desc: { 
+                            en: "Translates the current webpage from English to Hebrew using Google Translate.", 
+                            he: "מתרגם את דף האינטרנט הנוכחי מאנגלית לעברית באמצעות Google Translate." 
+                        },
                         code: `javascript:(function(){window.open('https://translate.google.com/translate?sl=en&tl=he&u='+encodeURIComponent(window.location.href));})();`
                     }
                 ]
             },
             {
-                category: "Visual & Design",
+                category: { en: "Visual & Design", he: "עיצוב ויזואלי" },
                 items: [
                     {
-                        title: "Force Dark Mode",
-                        desc: "Inverts colors on bright websites to save your eyes at night.",
+                        title: { en: "Force Dark Mode", he: "מצב כהה כפוי" },
+                        desc: { 
+                            en: "Inverts colors on bright websites to save your eyes at night.", 
+                            he: "הופך את הצבעים באתרים בהירים לשמירה על העיניים בלילה." 
+                        },
                         code: `javascript:(function(){var s=document.createElement('style');s.innerHTML='html { filter: invert(100%); } img, video { filter: invert(100%); }';document.head.appendChild(s);})();`
                     },
                     {
-                        title: "Extract Images",
-                        desc: "Opens a gallery view of all images found on the current page.",
+                        title: { en: "Extract Images", he: "חילוץ תמונות" },
+                        desc: { 
+                            en: "Opens a gallery view of all images found on the current page.", 
+                            he: "פותח לשונית חדשה עם תצוגת גלריה של כל התמונות שנמצאו בדף." 
+                        },
                         code: `javascript:(function(){var i,imgs=document.images,w=window.open('about:blank');w.document.write('<h1>Images extracted</h1>');for(i=0;i<imgs.length;i++){w.document.write('<img src="'+imgs[i].src+'" style="max-width:200px;margin:10px;border:1px solid #ccc;"/>');}w.document.close();})();`
                     },
                     {
-                        title: "Visual Inspector",
-                        desc: " outlines elements in red when you hover over them. Useful for debugging layout.",
+                        title: { en: "Visual Inspector", he: "בודק ויזואלי" },
+                        desc: { 
+                            en: "Outlines elements in red when you hover over them. Useful for debugging layout.", 
+                            he: "מסמן אלמנטים באדום כאשר עומדים עליהם עם העכבר. שימושי לניפוי שגיאות עיצוב." 
+                        },
                         code: `javascript:(function(){var style=document.createElement('style');style.innerHTML='*:hover{outline:1px solid red !important; cursor:crosshair !important;}';document.head.appendChild(style);})();`
                     }
                 ]
             },
             {
-                category: "Video & Media",
+                category: { en: "Video & Media", he: "וידאו ומדיה" },
                 items: [
                     {
-                        title: "Picture in Picture",
-                        desc: "Pops the video out of the browser window so you can watch while working.",
+                        title: { en: "Picture in Picture", he: "תמונה בתוך תמונה (PiP)" },
+                        desc: { 
+                            en: "Pops the video out of the browser window so you can watch while working.", 
+                            he: "מוציא את הוידאו לחלון צף כדי שתוכלו לצפות בזמן שאתם עובדים." 
+                        },
                         code: `javascript:(function(){var v=document.querySelector('video');if(v){v.requestPictureInPicture()}else{alert('No video found');}})();`
                     },
                     {
-                        title: "Speed Up (2.5x)",
-                        desc: "Forces HTML5 videos to play at 2.5x speed.",
+                        title: { en: "Speed Up (2.5x)", he: "האץ וידאו (2.5x)" },
+                        desc: { 
+                            en: "Forces HTML5 videos to play at 2.5x speed.", 
+                            he: "מכריח נגני וידאו HTML5 לנגן במהירות כפולה ומחצה (2.5x)." 
+                        },
                         code: `javascript:(function(){document.querySelectorAll('video').forEach(v=>v.playbackRate=2.5);})();`
                     }
                 ]
             },
             {
-                category: "AI & Utilities",
+                category: { en: "AI & Utilities", he: "AI וכלים שונים" },
                 items: [
                     {
-                        title: "Summarize Page (ChatGPT)",
-                        desc: "Sends the current URL to ChatGPT and asks for a summary.",
+                        title: { en: "Summarize Page (ChatGPT)", he: "סיכום דף (ChatGPT)" },
+                        desc: { 
+                            en: "Sends the current URL to ChatGPT and asks for a summary.", 
+                            he: "שולח את הכתובת הנוכחית ל-ChatGPT ומבקש סיכום של התוכן." 
+                        },
                         code: `javascript:(function(){window.open('https://chatgpt.com/?q=Please summarize this article: '+encodeURIComponent(window.location.href));})();`
                     },
                     {
-                        title: "Wayback Machine",
-                        desc: "Checks the Internet Archive for previous versions of this page.",
+                        title: { en: "Wayback Machine", he: "מכונת הזמן (ארכיון)" },
+                        desc: { 
+                            en: "Checks the Internet Archive for previous versions of this page.", 
+                            he: "בודק בארכיון האינטרנט אם קיימות גרסאות קודמות של דף זה." 
+                        },
                         code: `javascript:(function(){window.open('https://web.archive.org/web/*/'+location.href);})();`
                     },
                     {
-                        title: "Show Passwords",
-                        desc: "Reveals the text inside password fields.",
+                        title: { en: "Show Passwords", he: "הצג סיסמאות" },
+                        desc: { 
+                            en: "Reveals the text inside password fields.", 
+                            he: "חושף את הטקסט המוסתר בתוך שדות סיסמה." 
+                        },
                         code: `javascript:(function(){var f=document.querySelectorAll('input[type=password]');f.forEach(i=>i.type='text');})();`
                     }
                 ]
             }
         ];
 
-        // --- STATE ---
-        let currentCategoryIndex = 0;
-        let currentItemIndex = 0;
-
         // --- DOM ELEMENTS ---
         const sidebarContent = document.getElementById('sidebarContent');
         const contentArea = document.getElementById('content-area');
         const sidebar = document.getElementById('sidebar');
+        const uiTitle = document.getElementById('ui-title');
+        const searchInput = document.getElementById('searchInput');
+        const langBtn = document.getElementById('langBtn');
+
+        // --- INITIALIZATION ---
+        function applyLanguage() {
+            // Set HTML dir
+            document.documentElement.dir = currentLang === 'he' ? 'rtl' : 'ltr';
+            
+            // Set Static UI Text
+            uiTitle.innerText = UI_TEXT[currentLang].title;
+            searchInput.placeholder = UI_TEXT[currentLang].searchPlaceholder;
+            langBtn.innerText = UI_TEXT[currentLang].toggleLang;
+
+            // Re-render
+            const searchTerm = searchInput.value;
+            renderSidebar(searchTerm);
+            loadContent(currentCategoryIndex, currentItemIndex);
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'he' : 'en';
+            applyLanguage();
+        }
 
         // --- RENDER SIDEBAR ---
         function renderSidebar(filter = "") {
             sidebarContent.innerHTML = "";
             let hasResults = false;
 
-            library.forEach((cat, catIdx) => {
+            libraryData.forEach((cat, catIdx) => {
+                // Get Localized Category Name
+                const catName = cat.category[currentLang];
+                
                 // Filter items inside category
                 const filteredItems = cat.items.filter(item => 
-                    item.title.toLowerCase().includes(filter.toLowerCase())
+                    item.title[currentLang].toLowerCase().includes(filter.toLowerCase())
                 );
 
                 if (filteredItems.length > 0) {
@@ -393,17 +552,19 @@
                     // Header
                     const header = document.createElement('div');
                     header.className = 'category-label';
-                    header.innerText = cat.category;
+                    header.innerText = catName;
                     sidebarContent.appendChild(header);
 
                     // Items
                     filteredItems.forEach((item, itemIdx) => {
-                        // Find original index for click handler
+                        // Find original index in master array
                         const originalItemIdx = cat.items.indexOf(item);
                         
                         const div = document.createElement('div');
-                        div.className = `menu-item ${catIdx === currentCategoryIndex && originalItemIdx === currentItemIndex ? 'active' : ''}`;
-                        div.innerText = item.title;
+                        const isActive = catIdx === currentCategoryIndex && originalItemIdx === currentItemIndex;
+                        div.className = `menu-item ${isActive ? 'active' : ''}`;
+                        div.innerText = item.title[currentLang];
+                        
                         div.onclick = () => {
                             currentCategoryIndex = catIdx;
                             currentItemIndex = originalItemIdx;
@@ -417,38 +578,40 @@
             });
 
             if (!hasResults) {
-                sidebarContent.innerHTML = `<div style="padding:20px; color:#6b7280; text-align:center;">No tools found</div>`;
+                sidebarContent.innerHTML = `<div style="padding:20px; color:#6b7280; text-align:center;">${UI_TEXT[currentLang].noResults}</div>`;
             }
         }
 
         // --- RENDER CONTENT ---
         function loadContent(catIdx, itemIdx) {
-            const item = library[catIdx].items[itemIdx];
+            const item = libraryData[catIdx].items[itemIdx];
+            const title = item.title[currentLang];
+            const desc = item.desc[currentLang];
+            const ui = UI_TEXT[currentLang];
             
             contentArea.innerHTML = `
                 <div class="card">
-                    <h1>${item.title}</h1>
-                    <p class="description">${item.desc}</p>
+                    <h1>${title}</h1>
+                    <p class="description">${desc}</p>
                     
                     <div class="code-container">
-                        <span class="code-label">JavaScript Code</span>
+                        <span class="code-label">${ui.jsCodeLabel}</span>
                         <textarea id="codeField" readonly spellcheck="false">${item.code}</textarea>
                     </div>
 
                     <div class="action-row">
-                        <a href="${item.code}" class="btn bookmarklet-drag-btn" onclick="return false;" title="Drag this button to your bookmarks bar">
-                            <span>★</span> ${item.title}
+                        <a href="${item.code}" class="btn bookmarklet-drag-btn" onclick="return false;" title="${ui.dragButton}">
+                            <span>★</span> ${title}
                         </a>
                         <button class="btn btn-secondary" onclick="copyCode()">
-                            Copy to Clipboard
+                            ${ui.copyButton}
                         </button>
                     </div>
 
                     <div class="note-box">
                         <span style="font-size:1.5em">ℹ</span>
                         <div>
-                            <strong>Installation:</strong> Drag the blue button directly into your browser's bookmarks bar.<br>
-                            Clicking the button won't work due to browser security restrictions.
+                            <strong>${ui.installTitle}</strong> ${ui.installDesc}
                         </div>
                     </div>
                 </div>
@@ -462,7 +625,7 @@
             navigator.clipboard.writeText(field.value).then(() => {
                 const btn = document.querySelector('.btn-secondary');
                 const prev = btn.innerText;
-                btn.innerText = "Copied!";
+                btn.innerText = UI_TEXT[currentLang].copied;
                 btn.style.borderColor = "#10b981";
                 btn.style.color = "#10b981";
                 setTimeout(() => {
@@ -489,8 +652,7 @@
         }
 
         // --- INIT ---
-        renderSidebar();
-        loadContent(0, 0);
+        applyLanguage();
 
     </script>
 </body>
