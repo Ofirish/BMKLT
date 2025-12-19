@@ -303,6 +303,11 @@
                         title: "Force Page RTL",
                         desc: "Sets the document direction to Right-to-Left. Useful for Hebrew/Arabic.",
                         code: `javascript:(function(){document.documentElement.dir='rtl';})();`
+                    },
+                    {
+                        title: "Translate to Hebrew",
+                        desc: "Translates the current webpage from English to Hebrew using Google Translate.",
+                        code: `javascript:(function(){window.open('https://translate.google.com/translate?sl=en&tl=he&u='+encodeURIComponent(window.location.href));})();`
                     }
                 ]
             },
