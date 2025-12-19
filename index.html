@@ -298,6 +298,11 @@
                         title: "Enable Right Click",
                         desc: "Re-enables context menus and copy/paste on restricted sites.",
                         code: `javascript:(function(){function allow(e){e.stopImmediatePropagation();return true;}['contextmenu','selectstart','dragstart','copy','cut','paste'].forEach(function(ev){document.addEventListener(ev,allow,true);});document.body.oncontextmenu=null;document.body.onselectstart=null;document.body.ondragstart=null;alert('Right click enabled!');})();`
+                    },
+                                        {
+                        title: "RTL The Page",
+                        desc: "Turn the text direction on the page to Right to Left.",
+                        code: `javascript: (function() { var elements = document.getElementsByTagName("*"); for (e of elements) { if (!e.style) continue;if (!e.style.direction || e.style.direction === 'ltr' ) e.style.direction = 'rtl'; else e.style.direction = 'ltr'; } } )()`
                     }
                 ]
             },
