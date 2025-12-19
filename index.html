@@ -485,20 +485,20 @@
                         code: `javascript:(function(){window.open('https://chatgpt.com/?q=Please summarize this article: '+encodeURIComponent(window.location.href));})();`
                     },
                     {
+                        title: { en: "Summarize in Gemini", he: "סכם ב-Gemini" },
+                        desc: { 
+                            en: "Opens Google Gemini with a prompt to summarize the current page.", 
+                            he: "פותח את Google Gemini עם בקשה לסכם את הדף הנוכחי." 
+                        },
+                        code: `javascript:(function(){window.open('https://gemini.google.com/app?text=Please summarize this article: '+encodeURIComponent(window.location.href));})();`
+                    },
+                    {
                         title: { en: "Wayback Machine", he: "מכונת הזמן (ארכיון)" },
                         desc: { 
                             en: "Checks the Internet Archive for previous versions of this page.", 
                             he: "בודק בארכיון האינטרנט אם קיימות גרסאות קודמות של דף זה." 
                         },
                         code: `javascript:(function(){window.open('https://web.archive.org/web/*/'+location.href);})();`
-                    },
-                    {
-                        title: { en: "Show Passwords", he: "הצג סיסמאות" },
-                        desc: { 
-                            en: "Reveals the text inside password fields.", 
-                            he: "חושף את הטקסט המוסתר בתוך שדות סיסמה." 
-                        },
-                        code: `javascript:(function(){var f=document.querySelectorAll('input[type=password]');f.forEach(i=>i.type='text');})();`
                     }
                 ]
             }
@@ -584,6 +584,14 @@
 
         // --- RENDER CONTENT ---
         function loadContent(catIdx, itemIdx) {
+            // Safety check in case indices are out of bounds after deletion
+            if (!libraryData[catIdx] || !libraryData[catIdx].items[itemIdx]) {
+                currentCategoryIndex = 0;
+                currentItemIndex = 0;
+                catIdx = 0;
+                itemIdx = 0;
+            }
+
             const item = libraryData[catIdx].items[itemIdx];
             const title = item.title[currentLang];
             const desc = item.desc[currentLang];
